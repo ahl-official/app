@@ -1,42 +1,60 @@
-// api/generate.js
-// Generates all 4 angles sequentially — front first, then uses front result
-// as a style reference for back/side/top to ensure hairstyle consistency.
+// api/generate.js — each angle generated independently, no cross-image references
 
 const MODEL = 'google/gemini-2.5-flash-image';
 
-function buildPrompt(angle, hairstyleName, analysis, hasFrontRef) {
-  const styleSpec = [
-    `Hairstyle: "${hairstyleName}"`,
-    `Description: ${analysis.description}`,
-    `Length: ${analysis.length}`,
-    `Colour: match the person's natural hair colour exactly`,
-    `Front hairline: hair must fully drape over the forehead — NO bare hairline visible`,
-  ].join('\n');
+function buildPrompt(angle, analysis) {
+  const { hairstyle_name, description, length, front_notes, back_notes, side_notes, top_notes } = analysis;
 
-  const angleNote = {
-    front: `VIEW: Front face. ${analysis.front_notes || ''} Hair must cover the forehead hairline completely.`,
-    back: `VIEW: Back of head. ${analysis.back_notes || ''} Show the nape and back volume.`,
-    side: `VIEW: Side profile. ${analysis.side_notes || ''} No exposed temple hairline.`,
-    top: `VIEW: Top-down crown. ${analysis.top_notes || ''} Show parting and crown shape.`,
-  }[angle];
+  const angleMap = {
+    front: {
+      view: 'FRONT VIEW',
+      lock: 'The person faces directly toward the camera. The output MUST show a front-facing person.',
+      task: 'Add hair to the top and sides. Hair sweeps down across the forehead fully covering the hairline.',
+      notes: front_notes || '',
+    },
+    back: {
+      view: 'BACK OF HEAD VIEW',
+      lock: 'The person has their back to the camera. Output MUST show the back of the head — face NOT visible.',
+      task: 'Add hair to the back and crown. Show nape taper, back volume, and natural hair length from behind.',
+      notes: back_notes || '',
+    },
+    side: {
+      view: 'SIDE PROFILE VIEW',
+      lock: 'The person is turned 90 degrees showing their side profile. Output MUST be a side profile — one ear visible, nose seen from the side. This is NOT a front-facing photo. Do not rotate or repose the person.',
+      task: 'Add hair along the top of the head and side temple area as seen from the profile angle. Hair follows the natural head shape from the side.',
+      notes: side_notes || '',
+    },
+    top: {
+      view: 'TOP-DOWN CROWN VIEW',
+      lock: 'The camera looks straight down at the top of the person\'s head. Output MUST show the top/crown of the head from above.',
+      task: 'Add hair across the entire crown as seen from above. Show natural parting and full scalp coverage.',
+      notes: top_notes || '',
+    },
+  };
 
-  const refNote = hasFrontRef
-    ? `IMPORTANT: A reference image of the SAME hairstyle from the front is included. Match that EXACT hairstyle — same length, texture, shape, and colour. The hairstyle must look identical, just seen from a different angle.`
-    : '';
+  const a = angleMap[angle];
 
-  return `You are a professional photo retoucher. Add the hairstyle below to this person's photo.
+  return `PHOTO RETOUCHING TASK
 
-HAIRSTYLE SPEC:
-${styleSpec}
+You are editing the photo provided. The photo is a ${a.view}. ${a.lock}
 
-${angleNote}
-${refNote}
+Add a natural, realistic hairstyle to this person's bald/bare head.
 
-RULES:
-1. Keep face, skin, features, expression, clothing, background 100% identical — only add hair.
-2. Match the hairstyle spec EXACTLY — same style as described${hasFrontRef ? ' and shown in the reference' : ''}.
-3. Photorealistic result with natural lighting matching the original photo.
-4. Do NOT generate a different person.`;
+HAIRSTYLE DETAILS:
+- Name: ${hairstyle_name}
+- Style: ${description}
+- Length: ${length}
+- Hair colour: Match this person's beard and eyebrow colour exactly
+- ${a.task}
+${a.notes ? `- Notes: ${a.notes}` : ''}
+
+STRICT RULES:
+1. OUTPUT ANGLE: The output photo must be from the EXACT same angle as the input — ${a.view}. Do not change the person's pose, direction, or framing.
+2. HAIR ONLY: Change nothing except the hair. Face, skin, beard, eyes, ears, expression, neck, clothing, background — identical to input.
+3. PHOTOREALISM: Hair must look like real hair — natural strands, proper shadows, correct lighting. No painterly or cartoon look.
+4. FULL COVERAGE: No bald scalp visible anywhere. Natural full coverage.
+5. NO FACE CHANGES: Do not alter face shape, skin tone, age, or any facial feature.
+6. SAME FRAME: Same crop, same background, same lighting as the input.`;
 }
 
 function extractImageUrl(msg) {
@@ -62,24 +80,15 @@ function extractImageUrl(msg) {
   return null;
 }
 
-async function generateOne(id, sourceImage, analysis, apiKey, site, frontResultUrl) {
+async function generateOne(id, sourceImage, analysis, apiKey, site) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 150_000);
+  const timer = setTimeout(() => ctrl.abort(), 160_000);
 
-  // Build content array — include front result as style reference for other angles
-  const hasFrontRef = !!frontResultUrl && id !== 'front';
-  const content = [];
-
-  // Always include the source photo first
-  content.push({ type: 'image_url', image_url: { url: sourceImage } });
-
-  // For non-front angles, include the generated front as style reference
-  if (hasFrontRef) {
-    content.push({ type: 'text', text: 'SOURCE PHOTO (person to edit) shown above. REFERENCE HAIRSTYLE (match this exact style) shown below:' });
-    content.push({ type: 'image_url', image_url: { url: frontResultUrl } });
-  }
-
-  content.push({ type: 'text', text: buildPrompt(id, analysis.hairstyle_name, analysis, hasFrontRef) });
+  const content = [
+    { type: 'text', text: `The photo below is a ${id.toUpperCase()} VIEW. Edit this photo by adding hair. Do not change the angle.` },
+    { type: 'image_url', image_url: { url: sourceImage } },
+    { type: 'text', text: buildPrompt(id, analysis) },
+  ];
 
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -111,9 +120,10 @@ async function generateOne(id, sourceImage, analysis, apiKey, site, frontResultU
     const url = extractImageUrl(data?.choices?.[0]?.message);
     console.log(`[gen] ${id} ${url ? '✓' : '✗ no image'}`);
     return { id, url: url || null, error: url ? null : 'No image returned' };
+
   } catch (e) {
     clearTimeout(timer);
-    const msg = e.name === 'AbortError' ? 'Timed out' : e.message;
+    const msg = e.name === 'AbortError' ? 'Timed out (160s)' : e.message;
     console.error(`[gen] ${id} threw: ${msg}`);
     return { id, url: null, error: msg };
   }
@@ -133,25 +143,18 @@ export default async function handler(req, res) {
 
   const SITE = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
   const KEY = process.env.OPENROUTER_API_KEY;
-  const sources = { front, back, side, top };
 
-  console.log(`[gen] Rendering "${analysis.hairstyle_name}" — front first, then referencing it for other angles`);
+  console.log(`[gen] "${analysis.hairstyle_name}" — all 4 angles in parallel`);
   const t0 = Date.now();
 
-  // Step 1: generate front first
-  const frontResult = await generateOne('front', sources.front, analysis, KEY, SITE, null);
-  console.log(`[gen] Front done — ${frontResult.url ? 'using as style reference' : 'no reference available'}`);
-
-  // Step 2: generate back/side/top in parallel, passing front result as style reference
-  const [backResult, sideResult, topResult] = await Promise.all([
-    generateOne('back', sources.back, analysis, KEY, SITE, frontResult.url),
-    generateOne('side', sources.side, analysis, KEY, SITE, frontResult.url),
-    generateOne('top', sources.top, analysis, KEY, SITE, frontResult.url),
+  // All 4 in parallel — no cross-referencing to avoid angle confusion
+  const results = await Promise.all([
+    generateOne('front', front, analysis, KEY, SITE),
+    generateOne('back', back, analysis, KEY, SITE),
+    generateOne('side', side, analysis, KEY, SITE),
+    generateOne('top', top, analysis, KEY, SITE),
   ]);
 
-  const results = [frontResult, backResult, sideResult, topResult];
-  const ok = results.filter(r => r.url).length;
-  console.log(`[gen] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${ok}/4 succeeded`);
-
+  console.log(`[gen] done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${results.filter(r => r.url).length}/4 ok`);
   return res.status(200).json({ results, hairstyle: analysis.hairstyle_name });
 }
