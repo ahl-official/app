@@ -2,9 +2,10 @@
 // Accepts 4 angle photos → returns recommended hairstyle as structured JSON
 
 const VISION_MODELS = [
-  'qwen/qwen3.5-flash-02-23',
-  'qwen/qwen3.5-27b',
-  'bytedance-seed/seed-2.0-mini',
+  'google/gemini-2.0-flash-001',
+  'google/gemini-flash-1.5',
+  'meta-llama/llama-3.2-11b-vision-instruct',
+  'qwen/qwen-2.5-vl-72b-instruct',
 ];
 
 const SYSTEM_PROMPT = `You are a world-class master barber with 20+ years of experience. 
@@ -105,7 +106,7 @@ export default async function handler(req, res) {
       let parsed = null;
       try { parsed = JSON.parse(cleaned); } catch {
         const match = cleaned.match(/\{[\s\S]*\}/);
-        if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+        if (match) { try { parsed = JSON.parse(match[0]); } catch { } }
       }
 
       if (!parsed?.hairstyle_name) {
