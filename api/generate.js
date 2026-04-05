@@ -51,9 +51,9 @@ ${a.notes ? `- Notes: ${a.notes}` : ''}
 STRICT RULES:
 1. OUTPUT ANGLE: The output photo must be from the EXACT same angle as the input — ${a.view}. Do not change the person's pose, direction, or framing.
 2. HAIR ONLY: Change nothing except the hair. Face, skin, beard, eyes, ears, expression, neck, clothing, background — identical to input.
-3. PHOTOREALISM: Hair must look like real hair — natural strands, proper shadows, correct lighting. No painterly or cartoon look.
-4. FULL COVERAGE: No bald scalp visible anywhere. Natural full coverage.
-5. NO FACE CHANGES: Do not alter face shape, skin tone, age, or any facial feature.
+3. PHOTOREALISM: Hair must look like real hair — natural strands, proper shadows, correct lighting. No painterly or cartoon look. Please keep the colour of the hair across all 4 images the same. Do not change the colour of hair between the 4 images
+4. FULL COVERAGE: No bald scalp visible anywhere. Natural full coverage. Hide the front hairline but dont hide the entire forehead. 
+5. NO FACE CHANGES: Do not alter face shape, skin tone, age, or any facial feature. Dont add amything extra like beard or moustache, piercings or glasses.
 6. SAME FRAME: Same crop, same background, same lighting as the input.`;
 }
 
