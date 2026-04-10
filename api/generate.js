@@ -26,7 +26,7 @@ function buildPrompt(angle, analysis) {
     },
     top: {
       view: 'TOP-DOWN CROWN VIEW',
-      lock: 'The camera looks straight down at the top of the person\'s head. Output MUST show the top/crown of the head from above.',
+      lock: "The camera looks straight down at the top of the person's head. Output MUST show the top/crown of the head from above.",
       task: 'Add hair across the entire crown as seen from above. Show natural parting and full scalp coverage.',
       notes: top_notes || '',
     },
@@ -34,27 +34,115 @@ function buildPrompt(angle, analysis) {
 
   const a = angleMap[angle];
 
-  return `PHOTO RETOUCHING TASK
+  return `PHOTO RETOUCHING TASK — STRICT IDENTITY & HAIR CONSISTENCY
 
-You are editing the photo provided. The photo is a ${a.view}. ${a.lock}
+You are editing a REAL PERSON'S photo. This is NOT generation — this is a STRICT transformation.
 
-Add a natural, realistic hairstyle to this person's bald/bare head.
+========================
+IDENTITY LOCK (ABSOLUTE)
+========================
+- This is the SAME PERSON. Preserve identity EXACTLY.
+- Do NOT change:
+  - Face shape
+  - Skin tone
+  - Eyes, nose, lips
+  - Expression
 
-HAIRSTYLE DETAILS:
-- Name: ${hairstyle_name}
+- DO NOT add, remove, or modify:
+  - Beard
+  - Moustache
+  - Any facial hair
+  - Piercings or accessories
+
+- If clean-shaven → KEEP clean-shaven  
+- If beard exists → KEEP EXACT SAME beard  
+
+========================
+ANGLE LOCK (CRITICAL)
+========================
+The image is a ${a.view}.
+${a.lock}
+
+- DO NOT rotate or change angle
+- DO NOT reframe or zoom
+- Output must match the EXACT same camera angle
+
+========================
+HAIR TRANSFORMATION RULE
+========================
+- ONLY modify hair. NOTHING else.
+- Do NOT change identity in any way
+
+HAIR MUST MATCH ORIGINAL:
+- Use the person’s REAL hair pattern
+- Match natural hair texture exactly
+- Match hair colour EXACTLY
+
+DENSITY RULE (VERY STRICT):
+- Hair density must be SLIGHTLY LOWER or equal to original
+- NEVER increase density significantly
+- NO thick, fluffy, or artificial volume
+- Keep hair lightweight and natural
+
+========================
+HAIRSTYLE RULE (VERY IMPORTANT)
+========================
+- Apply ONE SINGLE hairstyle
+- The hairstyle MUST be IDENTICAL across ALL 4 images
+- NO variation in:
+  - Length
+  - Shape
+  - Density
+  - Volume
+
+- short length only
+- NO fades
+- NO undercuts
+- NO buzz cuts
+- NO exposed scalp
+
+HAIRLINE RULE:
+- Hair must naturally cover the front hairline
+- Forehead should still be partially visible
+- No artificial or heavy coverage
+
+========================
+HAIRSTYLE DETAILS
+========================
+- Hairstyle: ${hairstyle_name}
 - Style: ${description}
 - Length: ${length}
-- Hair colour: Match this person's beard and eyebrow colour exactly
-- ${a.task}
+
+${a.task}
 ${a.notes ? `- Notes: ${a.notes}` : ''}
 
-STRICT RULES:
-1. OUTPUT ANGLE: The output photo must be from the EXACT same angle as the input — ${a.view}. Do not change the person's pose, direction, or framing.
-2. HAIR ONLY: Change nothing except the hair. Face, skin, beard, eyes, ears, expression, neck, clothing, background — identical to input.
-3. PHOTOREALISM: Hair must look like real hair — natural strands, proper shadows, correct lighting. No painterly or cartoon look. Please keep the colour of the hair across all 4 images the same. Do not change the colour of hair between the 4 images
-4. FULL COVERAGE: No bald scalp visible anywhere. Natural full coverage. Hide the front hairline but dont hide the entire forehead. 
-5. NO FACE CHANGES: Do not alter face shape, skin tone, age, or any facial feature. Dont add amything extra like beard or moustache, piercings or glasses.
-6. SAME FRAME: Same crop, same background, same lighting as the input.`;
+========================
+STRICT NEGATIVE RULES
+========================
+- NEVER add beard or moustache
+- NEVER remove existing facial hair
+- NEVER add piercings
+- NEVER change hair colour
+- NEVER create thick or unrealistic hair
+- NEVER create different hairstyles across views
+- NEVER alter identity
+- NEVER modify background or clothing
+
+========================
+REALISM REQUIREMENT
+========================
+- Hair must be 100% photorealistic
+- Natural strands, shadows, lighting
+- Must look like real human hair
+
+========================
+FINAL OUTPUT RULE
+========================
+- SAME person
+- SAME angle
+- SAME frame
+- ONLY hair changed
+`;
 }
 
 function extractImageUrl(msg) {
@@ -92,7 +180,8 @@ async function generateOne(id, sourceImage, analysis, apiKey, site) {
 
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST', signal: ctrl.signal,
+      method: 'POST',
+      signal: ctrl.signal,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -101,12 +190,12 @@ async function generateOne(id, sourceImage, analysis, apiKey, site) {
       },
       body: JSON.stringify({
         model: MODEL,
-        modalities: ['image', 'text'],
+        modalities: ['image', 'text'], // OpenRouter-specific passthrough
         messages: [{ role: 'user', content }],
         max_tokens: 1024,
-        image_config: { aspect_ratio: '3:4', image_size: '1K' },
       }),
     });
+
     clearTimeout(timer);
 
     if (!res.ok) {
@@ -130,13 +219,22 @@ async function generateOne(id, sourceImage, analysis, apiKey, site) {
 }
 
 export default async function handler(req, res) {
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { front, back, side, top, analysis } = req.body || {};
+  // Safe body parsing
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) { /* ignore */ }
+  }
+
+  const { front, back, side, top, analysis } = body || {};
+
   if (!front || !back || !side || !top) return res.status(400).json({ error: 'Missing angle photos' });
   if (!analysis?.hairstyle_name) return res.status(400).json({ error: 'Missing analysis' });
   if (!process.env.OPENROUTER_API_KEY) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' });
@@ -147,7 +245,6 @@ export default async function handler(req, res) {
   console.log(`[gen] "${analysis.hairstyle_name}" — all 4 angles in parallel`);
   const t0 = Date.now();
 
-  // All 4 in parallel — no cross-referencing to avoid angle confusion
   const results = await Promise.all([
     generateOne('front', front, analysis, KEY, SITE),
     generateOne('back', back, analysis, KEY, SITE),

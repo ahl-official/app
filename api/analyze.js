@@ -8,33 +8,116 @@ const VISION_MODELS = [
   'qwen/qwen-2.5-vl-72b-instruct',
 ];
 
-const SYSTEM_PROMPT = `You are a world-class master barber with 20+ years of experience. 
-You analyse head shape, hair texture, density, hairline, and facial structure across multiple angles.
-You always recommend hairstyles that:
-- Fully cover the front hairline — no exposed hairline above the forehead
-- Are medium length (not buzz cuts, not excessively long)
-- Suit the person's specific head shape and hair type
-Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside the JSON.`;
+const SYSTEM_PROMPT = `You are a world-class master barber with 20+ years of experience.
 
-const USER_PROMPT = `Analyse these 4 photos of the same person (front, back, side, top). 
-Recommend the single most suitable hairstyle considering their head shape, hair texture, and hairline.
+You strictly follow user constraints.
 
-STRICT REQUIREMENTS:
-- The hairstyle MUST fully cover the front hairline — no hairline exposure above the forehead
-- NOT a buzz cut or very short style (nothing that exposes the scalp)
-- Medium length is ideal
-- Must suit their actual hair texture and head shape
+If multiple images are provided:
+- Treat them as the SAME person
+- Enforce identical hairstyle across all views
+- Preserve identity and facial features exactly
 
-Respond in this exact JSON format only:
+Respond ONLY with valid JSON. No markdown, no explanation.`;
+const USER_PROMPT = `YOU ARE PERFORMING A STRICT HAIR TRANSFORMATION TASK — NOT GENERATION.
+
+You must MODIFY the SAME PERSON in the images, not create a new or different person.
+
+========================
+IDENTITY LOCK (ABSOLUTE)
+========================
+- All 4 images are of the SAME PERSON. You MUST preserve identity perfectly.
+- Do NOT change:
+  - Face shape
+  - Skin tone
+  - Eyes, nose, lips
+  - Expression
+- Do NOT add, remove, or modify:
+  - Beard
+  - Moustache
+  - Facial hair of any kind
+  - Piercings or accessories
+- If the person is clean-shaven → KEEP clean-shaven
+- If the person has facial hair → KEEP it EXACTLY the same
+
+========================
+HAIR REALISM CONSTRAINT
+========================
+- You are NOT allowed to invent completely new hair.
+- You MUST work with the person’s EXISTING hair pattern.
+- Hair texture MUST remain the same (straight / wavy / curly).
+- Hair colour MUST remain EXACTLY the same.
+
+DENSITY RULE (VERY STRICT):
+- Hair density must closely match the person's natural density.
+- Only a VERY SLIGHT improvement is allowed (maximum +10–15%).
+- Do NOT create thick, voluminous, or unrealistic hair.
+- If hair is thin or receding → KEEP it natural and realistic.
+
+========================
+HAIRSTYLE REQUIREMENTS
+========================
+- Recommend ONE SINGLE hairstyle only.
+- The hairstyle must be MEDIUM length.
+- NOT a buzz cut.
+- NOT extremely long.
+- NO fades.
+- NO undercuts.
+- NO exposing scalp.
+
+HAIRLINE RULE:
+- The hairstyle MUST cover the front hairline.
+- Keep it natural — NOT dense or artificial.
+
+========================
+MULTI-VIEW CONSISTENCY (CRITICAL)
+========================
+- All 4 views MUST show the EXACT SAME hairstyle.
+- NO variation in:
+  - Length
+  - Density
+  - Volume
+  - Shape
+- The haircut must align perfectly across:
+  - Front
+  - Back
+  - Side
+  - Top
+- Think of it as ONE haircut viewed from 4 angles.
+
+========================
+STRICT NEGATIVE RULES
+========================
+- NEVER add beard or moustache
+- NEVER remove existing beard or moustache
+- NEVER add piercings
+- NEVER change hair colour
+- NEVER increase density significantly
+- NEVER generate thick or fluffy hair
+- NEVER create different hairstyles across views
+- NEVER alter identity
+
+========================
+TASK
+========================
+Analyse these 4 photos (front, back, side, top) of the SAME PERSON.
+
+Recommend ONE hairstyle that:
+- Matches their natural hair
+- Looks realistic
+- Respects all constraints above
+
+========================
+OUTPUT FORMAT (STRICT JSON ONLY)
+========================
 {
   "hairstyle_name": "Name of the hairstyle",
   "length": "Short / Medium-short / Medium / Medium-long",
-  "description": "2-3 sentences on the style and why it suits this person's features",
-  "front_notes": "How the front looks — emphasise full hairline coverage, forehead framing",
-  "back_notes": "How the back and nape area should look",
-  "side_notes": "How the sides and temples should look",
-  "top_notes": "How the crown and top look from above",
-  "styling_tip": "One practical tip for maintaining and styling this look"
+  "description": "2-3 sentences explaining why this style suits the person",
+  "front_notes": "Front view — must mention full hairline coverage and natural look",
+  "back_notes": "Back and nape structure",
+  "side_notes": "Sides and temples — NO fades",
+  "top_notes": "Top and crown — natural density, not thick",
+  "styling_tip": "One practical tip for styling and maintenance"
 }`;
 
 export default async function handler(req, res) {
