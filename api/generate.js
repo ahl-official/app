@@ -47,7 +47,7 @@ Your spec MUST include all of the following, stated as exact values (not ranges 
 
 STRICT RULES:
 - Density must always be LOW. This is a hair restoration preview — not a full-hair photo shoot.
-- Do NOT describe buzz cuts, skin fades, undercuts, or any style requiring shaved sides.
+- Do NOT describe buzz cuts, skin fades, undercuts, or any style requiring shaved sides.No hair on the forehead at all.
 - The spec must describe ONE consistent hairstyle that looks like the same head of hair from all 4 angles.
 - Be clinical and specific. No vague adjectives like "neat" or "stylish" without a concrete descriptor.
 - Plain text only. No markdown, no bullet symbols, no headers with # or *.
@@ -106,7 +106,7 @@ function buildPrompt(angle, analysis, lockedSpec) {
     front: {
       view: 'FRONT VIEW',
       lock: 'The person faces directly toward the camera. Output MUST show a front-facing person. Do NOT rotate and dont cover the forehead.',
-      task: 'Add natural hair to the top and sides of the head. Hair should not sweep across the forehead.',
+      task: 'Add natural hair to the top and sides of the head. Hair should not come over the forehead.',
       notes: front_notes || '',
     },
     back: {
