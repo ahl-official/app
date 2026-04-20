@@ -19,7 +19,7 @@ and recommend the most suitable hairstyle for a hair patch or hair transplant pr
 Your recommendations must be:
   - Clinically realistic for a hair restoration outcome
   - Suited to the client's face shape, skin tone, and existing hair pattern
-  - Conservative in density — hair patch and transplant results are natural, not thick
+  - Conservative in density — hair patch and transplant results are natural, not thick and not covering the forehead. 
   - Consistent across all 4 viewing angles — you are describing ONE hairstyle on ONE person
 
 Respond ONLY with valid JSON. No markdown, no explanation, no preamble.`;
@@ -66,11 +66,11 @@ Recommend ONE hairstyle only. It must be:
 
 LENGTH:
   - Short to medium-short ONLY
-  - Long enough to cover the scalp naturally
+  - Long enough to cover the scalp naturally but dont cover the forehead at all
   - Short enough to look realistic post-transplant
 
 DENSITY:
-  - LOW TO MODERATE — this is the most critical constraint
+  - LOW — this is the most critical constraint
   - Hair restoration does NOT produce thick, full, youthful hair
   - The result must look like naturally grown-in hair at realistic post-procedure density nut dont keep any bald spots or empty areas.
 

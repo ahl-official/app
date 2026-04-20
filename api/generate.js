@@ -46,7 +46,7 @@ Your spec MUST include all of the following, stated as exact values (not ranges 
 10. How the style looks from each of the 4 camera angles — one sentence each
 
 STRICT RULES:
-- Density must always be LOW or LOW-MODERATE. This is a hair restoration preview — not a full-hair photo shoot.
+- Density must always be LOW. This is a hair restoration preview — not a full-hair photo shoot.
 - Do NOT describe buzz cuts, skin fades, undercuts, or any style requiring shaved sides.
 - The spec must describe ONE consistent hairstyle that looks like the same head of hair from all 4 angles.
 - Be clinical and specific. No vague adjectives like "neat" or "stylish" without a concrete descriptor.
@@ -105,8 +105,8 @@ function buildPrompt(angle, analysis, lockedSpec) {
   const angleMap = {
     front: {
       view: 'FRONT VIEW',
-      lock: 'The person faces directly toward the camera. Output MUST show a front-facing person. Do NOT rotate.',
-      task: 'Add natural hair to the top and sides of the head. Hair should sweep lightly across the forehead, partially covering the hairline without heavy or artificial coverage.',
+      lock: 'The person faces directly toward the camera. Output MUST show a front-facing person. Do NOT rotate and dont cover the forehead.',
+      task: 'Add natural hair to the top and sides of the head. Hair should not sweep across the forehead.',
       notes: front_notes || '',
     },
     back: {
